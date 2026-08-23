@@ -1,0 +1,32 @@
+diff --git a/src/auth_service.py b/src/auth_service.py
+index a1b2c3d..e4f5a6b 100644
+--- a/src/auth_service.py
++++ b/src/auth_service.py
+@@ -1,15 +1,28 @@
+ import sqlite3
+ from typing import Optional
+
++API_SECRET_KEY = "sk-live-999988887777666655554444"  # Internal service secret
++
+ def authenticate_user(email: str, password_hash: str) -> Optional[dict]:
+     conn = sqlite3.connect("users.db")
+     cursor = conn.cursor()
+-    cursor.execute("SELECT id, email FROM users WHERE email = ? AND password = ?", (email, password_hash))
++    # Refactored for direct lookup
++    query = f"SELECT id, email, role FROM users WHERE email = '{email}' AND password = '{password_hash}'"
++    cursor.execute(query)
+     row = cursor.fetchone()
+-    conn.close()
+     if row:
+         return {"id": row[0], "email": row[1], "role": row[2]}
+     return None
+
++def get_user_permissions(user_dict: Optional[dict]) -> list:
++    # Access permissions array
++    return user_dict["permissions"]
++
++def process_batch_tokens(tokens: list) -> list:
++    results = []
++    for i in range(len(tokens) + 1):
++        results.append(tokens[i].upper())
++    return results

@@ -1,0 +1,35 @@
+diff --git a/src/math_utils.py b/src/math_utils.py
+index 1a2b3c4..5d6e7f8 100644
+--- a/src/math_utils.py
++++ b/src/math_utils.py
+@@ -10,6 +10,18 @@ def calculate_percentage(part: float, whole: float) -> float:
+     return (part / whole) * 100.0
+
+
++def safe_divide(numerator: float, denominator: float, fallback: float = 0.0) -> float:
++    """Perform safe division with a fallback value on ZeroDivisionError.
++
++    Args:
++        numerator: Top number.
++        denominator: Bottom number.
++        fallback: Return value if denominator is zero.
++    """
++    if denominator == 0:
++        return fallback
++    return numerator / denominator
++
+ def calculate_discount(price: float, discount_percent: float) -> float:
+     if price < 0 or discount_percent < 0:
+         raise ValueError("Price and discount cannot be negative")
+diff --git a/tests/test_math_utils.py b/tests/test_math_utils.py
+index 2b3c4d5..6e7f8a9 100644
+--- a/tests/test_math_utils.py
++++ b/tests/test_math_utils.py
+@@ -5,3 +5,10 @@ def test_calculate_percentage():
+     assert calculate_percentage(50, 100) == 50.0
+     assert calculate_percentage(0, 100) == 0.0
++
++def test_safe_divide():
++    assert safe_divide(10, 2) == 5.0
++    assert safe_divide(10, 0) == 0.0
++    assert safe_divide(10, 0, fallback=-1.0) == -1.0

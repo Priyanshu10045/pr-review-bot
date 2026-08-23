@@ -1,0 +1,30 @@
+name: "AI Code Review"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    name: "Groq Agent PR Review"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run AI PR Review Bot
+        uses: ./ # When hosted in marketplace or repo: your-org/pr-review-bot@v1
+        with:
+          groq_api_key: ${{ secrets.GROQ_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          model: "llama-3.3-70b-versatile"
+          max_tool_calls: "15"
+          enable_inline_comments: "true"
+          log_level: "INFO"

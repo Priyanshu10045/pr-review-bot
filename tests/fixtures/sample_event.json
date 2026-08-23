@@ -1,0 +1,31 @@
+{
+  "action": "opened",
+  "number": 101,
+  "pull_request": {
+    "number": 101,
+    "state": "open",
+    "title": "feat: Add authentication and token batch processing",
+    "body": "Implements direct SQL lookup for user authentication and batch token upper-casing.",
+    "user": {
+      "login": "octocat"
+    },
+    "head": {
+      "ref": "feature/auth-speedup",
+      "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5e"
+    },
+    "base": {
+      "ref": "main",
+      "sha": "f95f852cc5f5575addc8431e6f71fb376b21db52"
+    },
+    "changed_files": 1,
+    "additions": 18,
+    "deletions": 3,
+    "labels": []
+  },
+  "repository": {
+    "full_name": "octocat/Hello-World",
+    "owner": {
+      "login": "octocat"
+    }
+  }
+}

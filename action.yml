@@ -1,0 +1,42 @@
+name: "AI-Powered PR Review Bot"
+description: "Autonomous code review agent powered by Groq and multi-step tool calling"
+author: "Antigravity"
+branding:
+  icon: "check-circle"
+  color: "purple"
+
+inputs:
+  groq_api_key:
+    description: "API Key for Groq Cloud"
+    required: true
+  github_token:
+    description: "GitHub Token for posting review comments and reading diffs"
+    required: true
+    default: "${{ github.token }}"
+  model:
+    description: "Groq LLM model to use for the review agent"
+    required: false
+    default: "llama-3.3-70b-versatile"
+  max_tool_calls:
+    description: "Maximum number of tool execution steps before forcing summary"
+    required: false
+    default: "15"
+  enable_inline_comments:
+    description: "Whether to post inline line-level comments on the PR diff"
+    required: false
+    default: "true"
+  log_level:
+    description: "Logging level (DEBUG, INFO, WARNING, ERROR)"
+    required: false
+    default: "INFO"
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  env:
+    INPUT_GROQ_API_KEY: ${{ inputs.groq_api_key }}
+    INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
+    INPUT_MODEL: ${{ inputs.model }}
+    INPUT_MAX_TOOL_CALLS: ${{ inputs.max_tool_calls }}
+    INPUT_ENABLE_INLINE_COMMENTS: ${{ inputs.enable_inline_comments }}
+    INPUT_LOG_LEVEL: ${{ inputs.log_level }}
