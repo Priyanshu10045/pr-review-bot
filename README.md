@@ -1,9 +1,10 @@
 # 🤖 AI-Powered PR Review Bot (GitHub Action)
 
-[![Pytest & Ruff Checks](https://github.com/your-org/pr-review-bot/actions/workflows/test.yml/badge.svg)](https://github.com/your-org/pr-review-bot)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![pytest](https://img.shields.io/badge/pytest-passing-2ea44f?logo=pytest&logoColor=white)](https://github.com/Priyanshu10045/pr-review-bot/actions/workflows/test.yml)
+[![ruff](https://img.shields.io/badge/ruff-passing-261230?logo=ruff&logoColor=white)](https://github.com/Priyanshu10045/pr-review-bot/actions/workflows/test.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Groq LPU](https://img.shields.io/badge/Powered%20By-Groq%20Cloud-f55036.svg)](https://groq.com)
-[![Docker Container Action](https://img.shields.io/badge/GitHub%20Action-Docker-2496ED.svg)](https://github.com/features/actions)
+[![Docker Container Action](https://img.shields.io/badge/GitHub%20Action-Docker-2496ED.svg?logo=docker&logoColor=white)](https://github.com/features/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An autonomous, multi-step **AI code review agent packaged as a Docker-based GitHub Action**. Unlike single-prompt diff summarizers, this bot executes a **ReAct tool-calling loop** powered by Groq's high-throughput LPU inference (`llama-3.3-70b-versatile` or `llama-3.1-8b-instant`). It selectively inspects PR diffs, fetches surrounding codebase context, scans for cross-file caller regressions, and posts batch inline and summary reviews directly to GitHub Pull Requests in seconds.
@@ -168,7 +169,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run AI PR Review Bot
-        uses: your-org/pr-review-bot@main
+        uses: Priyanshu10045/pr-review-bot@main
         with:
           groq_api_key: ${{ secrets.GROQ_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -197,7 +198,7 @@ The bot includes an offline simulation mode in `sample_run.py` to test diffs and
 
 ```bash
 # 1. Clone repository and install dependencies
-git clone https://github.com/your-org/pr-review-bot.git
+git clone https://github.com/Priyanshu10045/pr-review-bot.git
 cd pr-review-bot
 uv venv .venv
 source .venv/bin/activate  # Or `.venv\Scripts\activate` on Windows
