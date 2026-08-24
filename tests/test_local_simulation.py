@@ -26,6 +26,33 @@ class TestLocalSimulationAndEntrypoint:
         exit_code = run_local_review(diff_path=non_existent, mock_mode=True)
         assert exit_code == 1
 
+    def test_run_local_review_clean_diff(self, fixtures_dir: Path):
+        diff_path = fixtures_dir / "clean_pr_diff.diff"
+        exit_code = run_local_review(
+            diff_path=diff_path,
+            mock_mode=True,
+            model="llama-3.3-70b-versatile",
+        )
+        assert exit_code == 0
+
+    def test_run_local_review_dynamic_custom_diff(self, tmp_path: Path):
+        custom_diff = tmp_path / "custom.diff"
+        custom_diff.write_text(
+            """diff --git a/custom_service.py b/custom_service.py
+--- a/custom_service.py
++++ b/custom_service.py
+@@ -1,3 +1,5 @@
++API_SECRET_KEY = "sk-live-abcdef123456"
++cursor.execute(f"SELECT * FROM items WHERE id = '{item_id}'")
+""",
+            encoding="utf-8",
+        )
+        exit_code = run_local_review(
+            diff_path=custom_diff,
+            mock_mode=True,
+        )
+        assert exit_code == 0
+
     def test_extract_event_context(self, fixtures_dir: Path):
         event_path = fixtures_dir / "sample_event.json"
         config = BotConfig(

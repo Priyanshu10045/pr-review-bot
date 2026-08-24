@@ -58,7 +58,9 @@ class TestAgentLoop:
         # Step 1: LLM asks for diff and metadata
         step1_tc1 = make_mock_tool_call("get_pr_diff", {}, "call_1")
         step1_tc2 = make_mock_tool_call("get_pr_metadata", {}, "call_2")
-        resp_step1 = make_mock_completion(content="Let's inspect the diff and metadata.", tool_calls=[step1_tc1, step1_tc2])
+        resp_step1 = make_mock_completion(
+            content="Let's inspect the diff and metadata.", tool_calls=[step1_tc1, step1_tc2]
+        )
 
         # Step 2: LLM assesses clean changes and posts summary
         step2_tc = make_mock_tool_call(
@@ -194,7 +196,10 @@ class TestAgentLoop:
 
         assert result.total_steps == max_limit
         assert result.summary is not None
-        assert "execution limit" in result.summary.summary_text.lower() or "partial" in result.summary.summary_text.lower()
+        assert (
+            "execution limit" in result.summary.summary_text.lower()
+            or "partial" in result.summary.summary_text.lower()
+        )
 
     def test_error_resilience_on_llm_failure(self, mock_pr_metadata):
         """Verify agent handles unexpected LLM failures without crashing."""
@@ -216,4 +221,71 @@ class TestAgentLoop:
         result = loop.run()
         assert result.completed_normally is False
         assert "Groq Gateway Timeout" in (result.error_message or "")
+        assert result.summary is not None
+
+    def test_duplicate_tool_call_cycle_detection(self, mock_pr_metadata):
+        """Verify duplicate tool calls with identical arguments are detected and deduplicated."""
+        mock_github = GitHubClient(mock_mode=True)
+        registry = self._setup_test_registry(mock_github, "empty diff", mock_pr_metadata)
+
+        # Agent calls get_pr_diff 3 times in a row with identical args
+        call1 = make_mock_tool_call("get_pr_diff", {}, "c1")
+        call2 = make_mock_tool_call("get_pr_diff", {}, "c2")
+        call3 = make_mock_tool_call("get_pr_diff", {}, "c3")
+        finish_call = make_mock_tool_call(
+            "post_summary_comment", {"summary_text": "Done", "risk_level": "LOW"}, "c4"
+        )
+
+        resp1 = make_mock_completion(content="Checking diff", tool_calls=[call1, call2, call3])
+        resp2 = make_mock_completion(content="Wrapping up", tool_calls=[finish_call])
+
+        mock_groq = MagicMock(spec=GroqClient)
+        mock_groq.generate_completion.side_effect = [resp1, resp2]
+
+        loop = AgentLoop(
+            groq_client=mock_groq,
+            github_client=mock_github,
+            tool_registry=registry,
+            pr_number=mock_pr_metadata.number,
+            repository="octocat/Hello-World",
+            max_tool_calls=10,
+        )
+
+        result = loop.run()
+        assert result.completed_normally is True
+        assert result.summary is not None
+        assert result.summary.risk_level == "LOW"
+
+    def test_malformed_tool_call_arguments_handled_gracefully(self, mock_pr_metadata):
+        """Verify malformed JSON strings in function arguments are safely caught."""
+        mock_github = GitHubClient(mock_mode=True)
+        registry = self._setup_test_registry(mock_github, "empty diff", mock_pr_metadata)
+
+        # Create tool call with invalid JSON string
+        malformed_tc = MagicMock()
+        malformed_tc.id = "bad_call_1"
+        malformed_tc.function.name = "post_inline_comment"
+        malformed_tc.function.arguments = "{ invalid_json: "
+
+        finish_call = make_mock_tool_call(
+            "post_summary_comment", {"summary_text": "Done", "risk_level": "LOW"}, "c2"
+        )
+
+        resp1 = make_mock_completion(content="Testing bad args", tool_calls=[malformed_tc])
+        resp2 = make_mock_completion(content="Recovered", tool_calls=[finish_call])
+
+        mock_groq = MagicMock(spec=GroqClient)
+        mock_groq.generate_completion.side_effect = [resp1, resp2]
+
+        loop = AgentLoop(
+            groq_client=mock_groq,
+            github_client=mock_github,
+            tool_registry=registry,
+            pr_number=mock_pr_metadata.number,
+            repository="octocat/Hello-World",
+            max_tool_calls=10,
+        )
+
+        result = loop.run()
+        assert result.completed_normally is True
         assert result.summary is not None

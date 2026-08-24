@@ -73,11 +73,13 @@ class GetFileContentTool(BaseTool):
 
             lines = content.splitlines()
             if len(lines) > max_lines:
-                numbered_lines = [f"{i+1:4d} | {line}" for i, line in enumerate(lines[:max_lines])]
+                numbered_lines = [
+                    f"{i + 1:4d} | {line}" for i, line in enumerate(lines[:max_lines])
+                ]
                 formatted = "\n".join(numbered_lines)
                 formatted += f"\n\n[File truncated: showing {max_lines}/{len(lines)} lines]"
             else:
-                numbered_lines = [f"{i+1:4d} | {line}" for i, line in enumerate(lines)]
+                numbered_lines = [f"{i + 1:4d} | {line}" for i, line in enumerate(lines)]
                 formatted = "\n".join(numbered_lines)
 
             return ToolResult(success=True, data=formatted)

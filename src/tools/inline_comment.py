@@ -8,6 +8,7 @@ from typing import Any
 from src.github_client.client import GitHubClient
 from src.github_client.models import InlineComment
 from src.tools.base import BaseTool, ToolResult
+from src.utils.diff_parser import DiffParser
 
 logger = logging.getLogger("PRReviewBot.PostInlineCommentTool")
 
@@ -19,7 +20,7 @@ class PostInlineCommentTool(BaseTool):
     description = (
         "Posts an inline review comment anchored to a specific file and line number in the PR diff. "
         "Use this for targeted findings: logic bugs, security vulnerabilities, edge-case null checks, "
-        "missing error handlers, or concrete code improvements."
+        "missing error handlers, or concrete code improvements. Use GitHub suggestion blocks when recommending code changes."
     )
     parameters_schema: dict[str, Any] = {
         "type": "object",
@@ -53,12 +54,14 @@ class PostInlineCommentTool(BaseTool):
         head_sha: str,
         staged_comments: list[InlineComment] | None = None,
         immediate_post: bool = False,
+        diff_text: str | None = None,
     ):
         self.github_client = github_client
         self.pr_number = pr_number
         self.head_sha = head_sha
         self.staged_comments = staged_comments if staged_comments is not None else []
         self.immediate_post = immediate_post
+        self.diff_text = diff_text
 
     def execute(
         self,
@@ -72,11 +75,22 @@ class PostInlineCommentTool(BaseTool):
         if not file or not file.strip():
             return ToolResult(success=False, error="Parameter 'file' cannot be empty.")
         if not isinstance(line, int) or line <= 0:
-            return ToolResult(success=False, error=f"Invalid line number '{line}'. Must be a positive integer.")
+            return ToolResult(
+                success=False, error=f"Invalid line number '{line}'. Must be a positive integer."
+            )
         if not comment or not comment.strip():
             return ToolResult(success=False, error="Parameter 'comment' cannot be empty.")
 
-        inline_obj = InlineComment(path=file.strip(), line=line, body=comment.strip(), side=side)
+        clean_file = file.strip().lstrip("./\\")
+        clean_comment = comment.strip()
+
+        # Validate line against diff if diff_text is available
+        if self.diff_text and not DiffParser.is_line_in_diff(self.diff_text, clean_file, line):
+            logger.warning(
+                "Line %d in '%s' may not be part of the modified PR diff hunks.", line, clean_file
+            )
+
+        inline_obj = InlineComment(path=clean_file, line=line, body=clean_comment, side=side)
         self.staged_comments.append(inline_obj)
 
         if self.immediate_post:
@@ -84,23 +98,23 @@ class PostInlineCommentTool(BaseTool):
                 self.github_client.post_inline_comment(
                     pr_number=self.pr_number,
                     commit_sha=self.head_sha,
-                    path=file.strip(),
+                    path=clean_file,
                     line=line,
-                    body=comment.strip(),
+                    body=clean_comment,
                     side=side,
                 )
                 return ToolResult(
                     success=True,
-                    data=f"Successfully posted inline comment on {file}:{line}.",
+                    data=f"Successfully posted inline comment on {clean_file}:{line}.",
                 )
             except Exception as err:
                 logger.error("Failed to post inline comment immediately: %s", err)
                 return ToolResult(
                     success=False,
-                    error=f"Failed to post inline comment on {file}:{line}: {err}",
+                    error=f"Failed to post inline comment on {clean_file}:{line}: {err}",
                 )
 
         return ToolResult(
             success=True,
-            data=f"Inline comment staged for {file}:{line}. It will be submitted with the final review batch.",
+            data=f"Inline comment staged for {clean_file}:{line}. It will be submitted with the final review batch.",
         )

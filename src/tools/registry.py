@@ -35,7 +35,9 @@ class ToolRegistry:
         """Execute a tool by name with the given argument dictionary."""
         tool = self.get_tool(tool_name)
         if not tool:
-            err_msg = f"Tool '{tool_name}' is not registered. Available tools: {list(self._tools.keys())}"
+            err_msg = (
+                f"Tool '{tool_name}' is not registered. Available tools: {list(self._tools.keys())}"
+            )
             logger.error(err_msg)
             return ToolResult(success=False, error=err_msg)
 

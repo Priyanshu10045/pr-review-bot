@@ -55,9 +55,13 @@ class AgentExecutionTracer:
     def log_thought(self, step: AgentStepTrace, thought: str) -> None:
         step.thought = thought
         if thought.strip():
-            console.print(Panel(thought, title=f"🧠 Step {step.step_number} Reasoning", border_style="blue"))
+            console.print(
+                Panel(thought, title=f"🧠 Step {step.step_number} Reasoning", border_style="blue")
+            )
 
-    def log_tool_call(self, step: AgentStepTrace, tool_name: str, arguments: dict[str, Any]) -> None:
+    def log_tool_call(
+        self, step: AgentStepTrace, tool_name: str, arguments: dict[str, Any]
+    ) -> None:
         step.tool_calls.append({"name": tool_name, "arguments": arguments})
         args_json = json.dumps(arguments, indent=2)
         console.print(
@@ -68,8 +72,12 @@ class AgentExecutionTracer:
             )
         )
 
-    def log_tool_result(self, step: AgentStepTrace, tool_name: str, result_preview: str, success: bool) -> None:
-        step.tool_results.append({"name": tool_name, "preview": result_preview[:300], "success": success})
+    def log_tool_result(
+        self, step: AgentStepTrace, tool_name: str, result_preview: str, success: bool
+    ) -> None:
+        step.tool_results.append(
+            {"name": tool_name, "preview": result_preview[:300], "success": success}
+        )
         status_color = "green" if success else "red"
         status_symbol = "✅" if success else "❌"
         console.print(
@@ -78,14 +86,18 @@ class AgentExecutionTracer:
 
     def print_summary_table(self) -> None:
         """Render an execution trace summary table in the terminal."""
-        table = Table(title="Agent Execution Trace Summary", show_header=True, header_style="bold magenta")
+        table = Table(
+            title="Agent Execution Trace Summary", show_header=True, header_style="bold magenta"
+        )
         table.add_column("Step", style="dim", width=6)
         table.add_column("Tools Called", style="cyan")
         table.add_column("Result Status", style="green")
 
         for step in self.steps:
             tools = ", ".join([tc["name"] for tc in step.tool_calls]) or "None (Final Response)"
-            statuses = ", ".join(["OK" if tr["success"] else "FAIL" for tr in step.tool_results]) or "Done"
+            statuses = (
+                ", ".join(["OK" if tr["success"] else "FAIL" for tr in step.tool_results]) or "Done"
+            )
             table.add_row(str(step.step_number), tools, statuses)
 
         console.print(table)

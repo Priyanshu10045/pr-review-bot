@@ -77,7 +77,14 @@ class SearchCodebaseTool(BaseTool):
         rg_path = shutil.which("rg")
         if rg_path and self.repo_root.is_dir():
             try:
-                cmd = [rg_path, "--line-number", "--no-heading", "--color=never", "-m", str(max_results)]
+                cmd = [
+                    rg_path,
+                    "--line-number",
+                    "--no-heading",
+                    "--color=never",
+                    "-m",
+                    str(max_results),
+                ]
                 if file_pattern:
                     cmd.extend(["-g", file_pattern])
                 cmd.extend(["-e", query, str(self.repo_root)])

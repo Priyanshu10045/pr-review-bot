@@ -38,7 +38,12 @@ class GroqClient:
     def list_available_models(self) -> list[str]:
         """Query the Groq API to retrieve all models accessible to the current API key."""
         if self.mock_mode:
-            return ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192"]
+            return [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-70b-versatile",
+                "llama-3.1-8b-instant",
+                "llama3-70b-8192",
+            ]
 
         if not self._client:
             raise RuntimeError("Cannot list Groq models without a configured API key.")
@@ -77,7 +82,11 @@ class GroqClient:
                     kwargs["tools"] = tools
                     kwargs["tool_choice"] = "auto"
 
-                logger.debug("Dispatching completion request to Groq model '%s' (attempt %d)", selected_model, attempt)
+                logger.debug(
+                    "Dispatching completion request to Groq model '%s' (attempt %d)",
+                    selected_model,
+                    attempt,
+                )
                 response = self._client.chat.completions.create(**kwargs)
                 return response
 
@@ -132,7 +141,9 @@ class GroqClient:
                     logger.error("Groq API error on model '%s': %s", selected_model, err)
                     raise
             except Exception as err:
-                logger.error("Unexpected error calling Groq with model '%s': %s", selected_model, err)
+                logger.error(
+                    "Unexpected error calling Groq with model '%s': %s", selected_model, err
+                )
                 if attempt < max_retries:
                     time.sleep(delay)
                     delay *= 2

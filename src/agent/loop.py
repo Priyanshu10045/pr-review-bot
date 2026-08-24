@@ -88,7 +88,9 @@ class AgentLoop:
 
         tools_schema = self.tool_registry.get_groq_tools_schema()
 
-        while step_count < self.max_tool_calls:
+        recent_tool_invocations: list[tuple[str, str]] = []
+
+        while step_count < self.max_tool_calls and total_tool_calls < self.max_tool_calls:
             step_count += 1
             step_trace = self.tracer.start_step(step_count)
             logger.debug("--- Starting Agent Step %d ---", step_count)
@@ -149,17 +151,29 @@ class AgentLoop:
                 except json.JSONDecodeError:
                     args_dict = {}
 
-                self.tracer.log_tool_call(step_trace, tool_name, args_dict)
+                # Cycle detection: check for repeated identical tool calls
+                call_sig = (tool_name, json.dumps(args_dict, sort_keys=True))
+                if recent_tool_invocations.count(call_sig) >= 2:
+                    logger.warning(
+                        "Duplicate tool invocation detected for %s. Skipping redundant call.",
+                        tool_name,
+                    )
+                    result_content = "Notice: This exact tool call was already executed previously with identical arguments."
+                    result_success = True
+                else:
+                    recent_tool_invocations.append(call_sig)
+                    self.tracer.log_tool_call(step_trace, tool_name, args_dict)
 
-                # Execute tool via registry
-                result = self.tool_registry.execute(tool_name, args_dict)
-                result_content = result.to_content()
+                    # Execute tool via registry
+                    result = self.tool_registry.execute(tool_name, args_dict)
+                    result_content = result.to_content()
+                    result_success = result.success
 
                 self.tracer.log_tool_result(
                     step_trace,
                     tool_name,
                     result_content,
-                    result.success,
+                    result_success,
                 )
 
                 # Append tool response message
@@ -172,7 +186,7 @@ class AgentLoop:
                     }
                 )
 
-                if tool_name == "post_summary_comment" and result.success:
+                if tool_name == "post_summary_comment" and result_success:
                     summary_posted = True
 
             # If summary was posted, we can terminate gracefully
@@ -180,11 +194,21 @@ class AgentLoop:
                 logger.info("Summary comment posted. Review loop complete.")
                 break
 
+            if total_tool_calls >= self.max_tool_calls:
+                logger.warning(
+                    "Agent reached maximum total tool calls ceiling (%d calls). Triggering safeguard summary.",
+                    self.max_tool_calls,
+                )
+                break
+
         # Check for max tool call safeguard trigger
-        if step_count >= self.max_tool_calls and not summary_posted:
+        if (
+            step_count >= self.max_tool_calls or total_tool_calls >= self.max_tool_calls
+        ) and not summary_posted:
             logger.warning(
-                "Agent reached maximum tool call ceiling (%d steps). Triggering safeguard summary.",
-                self.max_tool_calls,
+                "Agent reached maximum tool call ceiling (%d steps / %d calls). Triggering safeguard summary.",
+                step_count,
+                total_tool_calls,
             )
             self._handle_max_calls_fallback()
 
@@ -228,5 +252,8 @@ class AgentLoop:
                     f"({self.max_tool_calls} steps). Partial findings have been captured below."
                 ),
                 risk_level="MEDIUM",
-                checklist=["Review partial inline comments", "Perform manual review for remaining files"],
+                checklist=[
+                    "Review partial inline comments",
+                    "Perform manual review for remaining files",
+                ],
             )

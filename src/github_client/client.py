@@ -199,7 +199,7 @@ class GitHubClient:
     def get_file_content(self, path: str, ref: str | None = None) -> str:
         """Fetch full content of a file at a specific Git reference (branch or commit SHA)."""
         if self.mock_mode:
-            return f"// Mock content for {path} at {ref}"
+            return f"# Simulated file content for {path} at {ref or 'HEAD'}"
 
         repo = self._get_repo()
         kwargs = {"path": path}
@@ -323,10 +323,14 @@ class GitHubClient:
                         event=event,
                     )
                 )
-            logger.info("Successfully submitted batch review with %d inline comments.", len(comments))
+            logger.info(
+                "Successfully submitted batch review with %d inline comments.", len(comments)
+            )
             return True
         except GithubException as err:
-            logger.warning("Batch review submission failed (%s). Falling back to individual comments.", err)
+            logger.warning(
+                "Batch review submission failed (%s). Falling back to individual comments.", err
+            )
             # Fallback: post individually
             self.post_summary_comment(pr_number, summary_text)
             for c in comments:

@@ -1,6 +1,6 @@
 name: "AI-Powered PR Review Bot"
 description: "Autonomous code review agent powered by Groq and multi-step tool calling"
-author: "DevOps & Platform Engineering"
+author: "Priyanshu10045"
 branding:
   icon: "check-circle"
   color: "purple"

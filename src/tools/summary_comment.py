@@ -124,10 +124,12 @@ class PostSummaryCommentTool(BaseTool):
                 lines.append(f"- [ ] {item}")
             lines.append("")
 
-        lines.extend([
-            "---",
-            "*Review generated autonomously by [Groq-Powered PR Review Bot](https://github.com/marketplace). "
-            "Always verify critical logic before merging.*",
-        ])
+        lines.extend(
+            [
+                "---",
+                "*Review generated autonomously by [AI PR Review Bot](https://github.com/Priyanshu10045/pr-review-bot). "
+                "Always verify critical logic before merging.*",
+            ]
+        )
 
         return "\n".join(lines)

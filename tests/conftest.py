@@ -57,7 +57,9 @@ def mock_github_client(mock_pr_metadata: PRMetadata) -> GitHubClient:
     return client
 
 
-def make_mock_tool_call(tool_name: str, arguments: dict[str, Any], call_id: str = "call_123") -> MagicMock:
+def make_mock_tool_call(
+    tool_name: str, arguments: dict[str, Any], call_id: str = "call_123"
+) -> MagicMock:
     """Helper to create a mock tool call object matching Groq/OpenAI structure."""
     tc = MagicMock()
     tc.id = call_id

@@ -43,7 +43,8 @@ class BotConfig(BaseModel):
 
     # LLM Settings
     model: str = Field(
-        default_factory=lambda: get_env_var("MODEL", "llama-3.3-70b-versatile") or "llama-3.3-70b-versatile",
+        default_factory=lambda: get_env_var("MODEL", "llama-3.3-70b-versatile")
+        or "llama-3.3-70b-versatile",
         description="Groq model ID to use for code review",
     )
     temperature: float = Field(
@@ -57,9 +58,8 @@ class BotConfig(BaseModel):
 
     # Review Behavior
     enable_inline_comments: bool = Field(
-        default_factory=lambda: (
-            get_env_var("ENABLE_INLINE_COMMENTS", "true") or "true"
-        ).lower() in ("true", "1", "yes"),
+        default_factory=lambda: (get_env_var("ENABLE_INLINE_COMMENTS", "true") or "true").lower()
+        in ("true", "1", "yes"),
         description="Whether to post inline comments directly on lines of code in the PR diff",
     )
     repo_root: Path = Field(

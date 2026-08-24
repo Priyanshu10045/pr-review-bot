@@ -72,7 +72,9 @@ class TestGroqClient:
         # Build mock response for RateLimitError
         mock_req = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
         mock_http_resp = httpx.Response(429, request=mock_req)
-        rate_limit_err = RateLimitError(message="Rate limit exceeded", response=mock_http_resp, body={"error": "rate_limit"})
+        rate_limit_err = RateLimitError(
+            message="Rate limit exceeded", response=mock_http_resp, body={"error": "rate_limit"}
+        )
 
         mock_success_resp = MagicMock()
         mock_groq.chat.completions.create.side_effect = [rate_limit_err, mock_success_resp]
@@ -108,7 +110,9 @@ class TestGroqClient:
         assert mock_groq.chat.completions.create.call_count == 2
 
     def test_model_not_found_raises_informative_error(self):
-        client = GroqClient(api_key="gsk-test123456", default_model="non-existent-model", mock_mode=False)
+        client = GroqClient(
+            api_key="gsk-test123456", default_model="non-existent-model", mock_mode=False
+        )
         mock_groq = MagicMock()
 
         mock_req = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")

@@ -61,9 +61,7 @@ class TestGitHubClient:
         mock_repo.get_commit.return_value = MagicMock()
         client._repo = mock_repo
 
-        comments = [
-            InlineComment(path="src/main.py", line=5, body="Refactor this", side="RIGHT")
-        ]
+        comments = [InlineComment(path="src/main.py", line=5, body="Refactor this", side="RIGHT")]
 
         success = client.submit_batch_review(
             pr_number=10,
@@ -85,9 +83,7 @@ class TestGitHubClient:
         mock_repo.get_commit.return_value = MagicMock()
         client._repo = mock_repo
 
-        comments = [
-            InlineComment(path="src/main.py", line=5, body="Refactor this", side="RIGHT")
-        ]
+        comments = [InlineComment(path="src/main.py", line=5, body="Refactor this", side="RIGHT")]
 
         success = client.submit_batch_review(
             pr_number=10,
@@ -99,3 +95,49 @@ class TestGitHubClient:
         assert success is True
         # Summary comment and inline comment should be posted via fallback
         mock_pr.create_issue_comment.assert_called_once()
+
+    def test_get_pr_files_and_diff(self):
+        client = GitHubClient(token="ghp_test", repository_name="owner/repo", mock_mode=False)
+        mock_repo = MagicMock()
+        mock_pr = MagicMock()
+
+        file1 = MagicMock()
+        file1.filename = "src/calculator.py"
+        file1.status = "modified"
+        file1.additions = 5
+        file1.deletions = 1
+        file1.changes = 6
+        file1.patch = "@@ -1,3 +1,5 @@\n+print('hi')\n"
+        file1.previous_filename = None
+
+        mock_pr.get_files.return_value = [file1]
+        mock_repo.get_pull.return_value = mock_pr
+        client._repo = mock_repo
+
+        diff_hunks = client.get_pr_files(10)
+        assert len(diff_hunks) == 1
+        assert diff_hunks[0].filename == "src/calculator.py"
+
+        diff_text = client.get_pr_diff(10)
+        assert "diff --git a/src/calculator.py b/src/calculator.py" in diff_text
+        assert "+print('hi')" in diff_text
+
+    def test_get_file_content_live(self):
+        client = GitHubClient(token="ghp_test", repository_name="owner/repo", mock_mode=False)
+        mock_repo = MagicMock()
+        mock_content = MagicMock()
+        mock_content.decoded_content = b"def test():\n    return True\n"
+        mock_repo.get_contents.return_value = mock_content
+        client._repo = mock_repo
+
+        content = client.get_file_content("src/main.py", ref="main")
+        assert "def test():" in content
+
+    def test_get_file_content_404_not_found(self):
+        client = GitHubClient(token="ghp_test", repository_name="owner/repo", mock_mode=False)
+        mock_repo = MagicMock()
+        mock_repo.get_contents.side_effect = GithubException(404, {"message": "Not Found"}, None)
+        client._repo = mock_repo
+
+        res = client.get_file_content("missing.py")
+        assert "Error: File 'missing.py' not found" in res

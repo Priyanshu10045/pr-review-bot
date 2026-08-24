@@ -39,7 +39,9 @@ class TestTools:
 
     def test_get_pr_metadata_tool(self, mock_pr_metadata):
         mock_client = GitHubClient(mock_mode=True)
-        tool = GetPRMetadataTool(github_client=mock_client, pr_number=101, mock_metadata=mock_pr_metadata)
+        tool = GetPRMetadataTool(
+            github_client=mock_client, pr_number=101, mock_metadata=mock_pr_metadata
+        )
         res = tool.execute()
         assert res.success is True
         assert res.data["pr_number"] == 101
@@ -60,7 +62,9 @@ class TestTools:
     def test_search_codebase_tool(self, tmp_path: Path):
         code_dir = tmp_path / "src"
         code_dir.mkdir()
-        (code_dir / "user_auth.py").write_text("def authenticate_jwt_token(): pass\n", encoding="utf-8")
+        (code_dir / "user_auth.py").write_text(
+            "def authenticate_jwt_token(): pass\n", encoding="utf-8"
+        )
         (code_dir / "billing.py").write_text("def process_payment(): pass\n", encoding="utf-8")
 
         tool = SearchCodebaseTool(repo_root=tmp_path)
