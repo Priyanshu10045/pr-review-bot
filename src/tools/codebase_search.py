@@ -108,11 +108,10 @@ class SearchCodebaseTool(BaseTool):
                         success=True,
                         data=f"No matches found for query '{query}' in the codebase.",
                     )
-            except Exception:
-                # Fallback to Python search
+            except (subprocess.SubprocessError, OSError):
+                # Fallback to Python traversal if ripgrep encounters an environment issue
                 pass
 
-        # Pure Python fallback
         return self._python_search(query, file_pattern, max_results)
 
     def _python_search(
@@ -147,7 +146,6 @@ class SearchCodebaseTool(BaseTool):
                 continue
 
             try:
-                # Skip binary files
                 content = path.read_text(encoding="utf-8", errors="ignore")
                 rel_path = path.relative_to(self.repo_root)
                 for line_idx, line in enumerate(content.splitlines(), start=1):
@@ -162,7 +160,7 @@ class SearchCodebaseTool(BaseTool):
                         count += 1
                         if count >= max_results:
                             break
-            except Exception:
+            except (OSError, UnicodeDecodeError, PermissionError):
                 continue
 
         if not matches:

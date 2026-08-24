@@ -13,8 +13,8 @@ class GetPRDiffTool(BaseTool):
 
     name = "get_pr_diff"
     description = (
-        "Fetches the complete unified diff for the Pull Request. "
-        "Returns the file changes, additions (+), and deletions (-) across all modified files."
+        "Fetches the complete unified git diff for the Pull Request. "
+        "Call this first to inspect all modified, added, or deleted files, line changes, and diff hunks."
     )
     parameters_schema: dict[str, Any] = {
         "type": "object",

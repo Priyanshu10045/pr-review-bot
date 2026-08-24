@@ -221,7 +221,7 @@ python sample_run.py --diff tests/fixtures/buggy_pr_diff.diff --api-key YOUR_GRO
 
 ## 🧪 Testing & Quality Assurance
 
-The test suite contains 29 comprehensive unit and integration tests covering GitHub API rate limiting, retry backoff, JSON tool schemas, diff parsing, model listing, and agent loop safeguards:
+The test suite contains 47 unit and integration tests covering GitHub API rate limiting, retry backoff, JSON tool schemas, diff parsing, model listing, diff hunk line validation, and agent loop safeguards:
 
 ```bash
 # Run pytest with branch and statement coverage
@@ -234,6 +234,7 @@ ruff check .
 ### Key Test Scenarios:
 - **Clean PR Scenario**: Verifies the agent detects low risk, posts 0 unnecessary inline comments, and outputs a clean markdown review.
 - **Buggy PR Scenario**: Verifies detection of SQL injection, hardcoded API keys, off-by-one index errors, and posts line-anchored comments with `HIGH` risk assessment.
+- **Diff Hunk Boundary Validation**: Verifies that comments targeting lines outside diff hunks or un-modified files are safely caught and rejected.
 - **Max Tool Call Safeguard**: Enforces loop termination when reaching step ceiling, flushing partial review comments gracefully.
 - **GitHub API Rate Limit Backoff**: Tests exponential backoff and retry when receiving HTTP 403 / 429 status codes.
 - **Dynamic Model Discovery & Validation**: Tests SDK model listing and error handling on unavailable models.

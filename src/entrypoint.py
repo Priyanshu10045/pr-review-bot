@@ -48,7 +48,7 @@ def extract_event_context(config: BotConfig) -> tuple[int | None, str | None, st
 
             if "repository" in event_data:
                 repo_name = event_data["repository"].get("full_name", repo_name)
-        except Exception as err:
+        except (json.JSONDecodeError, OSError, KeyError) as err:
             logger.warning(
                 "Could not read event payload from %s: %s", config.github_event_path, err
             )
@@ -98,13 +98,11 @@ def main() -> int:
     if cli_args.model:
         config.model = cli_args.model
 
-    # Configure root log level
     log_level_num = getattr(logging, config.log_level.upper(), logging.INFO)
     logging.getLogger().setLevel(log_level_num)
 
     pr_number, repo_name, event_head_sha = extract_event_context(config)
 
-    # Use explicit config PR/repo if not found in event path
     pr_number = pr_number or config.pr_number
     repo_name = repo_name or config.github_repository
 
@@ -126,14 +124,13 @@ def main() -> int:
         logger.error("Configuration validation error: %s", val_err)
         return 1
 
-    # 1. Initialize GitHub API Client
     github_client = GitHubClient(
         token=config.github_token,
         repository_name=repo_name,
         mock_mode=False,
     )
+    github_client.check_rate_limit()
 
-    # 2. Fetch initial PR metadata for SHA verification
     try:
         pr_meta = github_client.get_pr_metadata(pr_number)
         head_sha = pr_meta.head_sha or event_head_sha or "HEAD"
@@ -148,14 +145,12 @@ def main() -> int:
         logger.error("Failed to retrieve PR #%d metadata from GitHub: %s", pr_number, err)
         return 1
 
-    # 3. Initialize Groq LLM Client
     groq_client = GroqClient(
         api_key=config.groq_api_key,
         default_model=config.model,
         temperature=config.temperature,
     )
 
-    # 4. Set up Tool Registry
     registry = ToolRegistry()
     registry.register(GetPRDiffTool(github_client=github_client, pr_number=pr_number))
     registry.register(GetPRMetadataTool(github_client=github_client, pr_number=pr_number))

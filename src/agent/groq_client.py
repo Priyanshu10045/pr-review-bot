@@ -52,7 +52,7 @@ class GroqClient:
             models_page = self._client.models.list()
             model_ids = [m.id for m in models_page.data if getattr(m, "active", True)]
             return sorted(model_ids)
-        except Exception as err:
+        except (APIError, APIConnectionError) as err:
             logger.error("Failed to list available Groq models: %s", err)
             raise
 

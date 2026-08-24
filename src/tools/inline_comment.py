@@ -63,6 +63,19 @@ class PostInlineCommentTool(BaseTool):
         self.immediate_post = immediate_post
         self.diff_text = diff_text
 
+    def _get_diff(self) -> str | None:
+        """Lazily resolve the PR diff for validation."""
+        if self.diff_text:
+            return self.diff_text
+        if self.github_client and not getattr(self.github_client, "mock_mode", False):
+            try:
+                self.diff_text = self.github_client.get_pr_diff(self.pr_number)
+                return self.diff_text
+            except Exception as err:
+                logger.warning("Could not fetch PR diff for line validation: %s", err)
+                return None
+        return None
+
     def execute(
         self,
         file: str,
@@ -71,7 +84,7 @@ class PostInlineCommentTool(BaseTool):
         side: str = "RIGHT",
         **kwargs,
     ) -> ToolResult:
-        """Stage or post an inline review comment."""
+        """Stage or post an inline review comment with diff hunk boundary validation."""
         if not file or not file.strip():
             return ToolResult(success=False, error="Parameter 'file' cannot be empty.")
         if not isinstance(line, int) or line <= 0:
@@ -84,11 +97,34 @@ class PostInlineCommentTool(BaseTool):
         clean_file = file.strip().lstrip("./\\")
         clean_comment = comment.strip()
 
-        # Validate line against diff if diff_text is available
-        if self.diff_text and not DiffParser.is_line_in_diff(self.diff_text, clean_file, line):
-            logger.warning(
-                "Line %d in '%s' may not be part of the modified PR diff hunks.", line, clean_file
-            )
+        # Validate line against diff hunks if diff is accessible
+        diff = self._get_diff()
+        if diff and diff.strip():
+            changed_files = DiffParser.get_changed_files(diff)
+            clean_changed = [f.lstrip("./\\") for f in changed_files]
+
+            if clean_changed and clean_file not in clean_changed:
+                return ToolResult(
+                    success=False,
+                    error=(
+                        f"File '{clean_file}' is not modified in PR #{self.pr_number}. "
+                        f"Modified files in this PR: {clean_changed}"
+                    ),
+                )
+
+            valid_lines = DiffParser.get_commentable_lines(diff, clean_file)
+            if valid_lines and line not in valid_lines:
+                sorted_valid = sorted(list(valid_lines))
+                preview = sorted_valid[:15]
+                more_suffix = f" (and {len(sorted_valid) - 15} more)" if len(sorted_valid) > 15 else ""
+                return ToolResult(
+                    success=False,
+                    error=(
+                        f"Line {line} in '{clean_file}' is outside the modified diff hunks. "
+                        f"GitHub review comments must be anchored to modified/added lines. "
+                        f"Valid commentable lines for '{clean_file}': {preview}{more_suffix}."
+                    ),
+                )
 
         inline_obj = InlineComment(path=clean_file, line=line, body=clean_comment, side=side)
         self.staged_comments.append(inline_obj)

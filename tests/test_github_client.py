@@ -32,7 +32,6 @@ class TestGitHubClient:
     def test_retry_on_github_rate_limit_403(self):
         client = GitHubClient(mock_mode=False)
 
-        # Mock function that fails once with 403 then succeeds
         mock_func = MagicMock()
         mock_func.side_effect = [
             GithubException(403, {"message": "API rate limit exceeded"}, None),
@@ -53,7 +52,32 @@ class TestGitHubClient:
             client._execute_with_retry(mock_func, max_retries=2, initial_delay=0.01)
         assert mock_func.call_count == 2
 
-    def test_batch_review_submission_success(self, mocker):
+    def test_check_rate_limit_with_mocked_gh(self):
+        client = GitHubClient(mock_mode=False)
+        mock_gh = MagicMock()
+        mock_rate = MagicMock()
+        mock_core = MagicMock()
+        mock_core.remaining = 4500
+        mock_core.limit = 5000
+        mock_core.reset = "2026-08-24 22:00:00"
+        mock_rate.core = mock_core
+        mock_gh.get_rate_limit.return_value = mock_rate
+        client._gh = mock_gh
+
+        info = client.check_rate_limit()
+        assert info["remaining"] == 4500
+        assert info["limit"] == 5000
+
+    def test_check_rate_limit_exception_handling(self):
+        client = GitHubClient(mock_mode=False)
+        mock_gh = MagicMock()
+        mock_gh.get_rate_limit.side_effect = GithubException(401, {"message": "Bad credentials"}, None)
+        client._gh = mock_gh
+
+        info = client.check_rate_limit()
+        assert info == {}
+
+    def test_batch_review_submission_success(self):
         client = GitHubClient(mock_mode=False)
         mock_repo = MagicMock()
         mock_pr = MagicMock()
@@ -73,11 +97,10 @@ class TestGitHubClient:
         assert success is True
         mock_pr.create_review.assert_called_once()
 
-    def test_batch_review_fallback_on_failure(self, mocker):
+    def test_batch_review_fallback_on_failure(self):
         client = GitHubClient(mock_mode=False)
         mock_repo = MagicMock()
         mock_pr = MagicMock()
-        # Make create_review fail to trigger individual fallback
         mock_pr.create_review.side_effect = GithubException(422, {"message": "Invalid line"}, None)
         mock_repo.get_pull.return_value = mock_pr
         mock_repo.get_commit.return_value = MagicMock()
@@ -93,7 +116,6 @@ class TestGitHubClient:
         )
 
         assert success is True
-        # Summary comment and inline comment should be posted via fallback
         mock_pr.create_issue_comment.assert_called_once()
 
     def test_get_pr_files_and_diff(self):

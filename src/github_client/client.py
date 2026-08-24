@@ -40,7 +40,6 @@ class GitHubClient:
         if not self.mock_mode and token and repository_name:
             auth = Auth.Token(token)
             self._gh = Github(auth=auth, per_page=100)
-            self._check_rate_limit()
 
     def _get_repo(self) -> Repository.Repository:
         """Lazily fetch and cache the GitHub repository instance."""
@@ -52,7 +51,7 @@ class GitHubClient:
             self._repo = self._gh.get_repo(self.repository_name)
         return self._repo
 
-    def _check_rate_limit(self) -> dict:
+    def check_rate_limit(self) -> dict:
         """Inspect and log remaining GitHub API rate limits."""
         if not self._gh:
             return {}
@@ -75,9 +74,13 @@ class GitHubClient:
                 "limit": core_limit.limit,
                 "reset": str(core_limit.reset),
             }
-        except Exception as err:
+        except GithubException as err:
             logger.warning("Could not fetch GitHub rate limit info: %s", err)
             return {}
+
+    def _check_rate_limit(self) -> dict:
+        """Backward-compatible alias for check_rate_limit."""
+        return self.check_rate_limit()
 
     def _execute_with_retry(self, func, max_retries: int = 3, initial_delay: float = 2.0):
         """Execute a GitHub API call with exponential backoff for 403/429/5xx errors."""
@@ -104,10 +107,10 @@ class GitHubClient:
                 else:
                     logger.error("GitHub API call failed after %d attempts: %s", attempt, err)
                     raise
-            except Exception as err:
+            except (ConnectionError, TimeoutError, OSError) as err:
                 if attempt < max_retries:
                     logger.warning(
-                        "Transient exception on attempt %d/%d: %s. Retrying in %.1fs...",
+                        "Transient network exception on attempt %d/%d: %s. Retrying in %.1fs...",
                         attempt,
                         max_retries,
                         err,

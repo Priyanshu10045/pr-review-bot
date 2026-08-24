@@ -98,6 +98,42 @@ class TestTools:
         err_res = tool.execute(file="src/auth.py", line=-1, comment="Bad line")
         assert err_res.success is False
 
+    def test_post_inline_comment_diff_hunk_boundary_validation(self, buggy_diff_text):
+        mock_client = GitHubClient(mock_mode=True)
+        tool = PostInlineCommentTool(
+            github_client=mock_client,
+            pr_number=1,
+            head_sha="sha123",
+            immediate_post=False,
+            diff_text=buggy_diff_text,
+        )
+
+        # File is src/auth_service.py and line 10 is inside the diff hunk
+        valid_res = tool.execute(
+            file="src/auth_service.py",
+            line=10,
+            comment="SQL Injection vulnerability detected.",
+        )
+        assert valid_res.success is True
+
+        # Line 999 is not in the diff hunk for src/auth_service.py
+        invalid_line_res = tool.execute(
+            file="src/auth_service.py",
+            line=999,
+            comment="Hallucinated line comment",
+        )
+        assert invalid_line_res.success is False
+        assert "outside the modified diff hunks" in invalid_line_res.error
+
+        # File not modified in this PR
+        unmodified_file_res = tool.execute(
+            file="src/unmodified_module.py",
+            line=5,
+            comment="Comment on unmodified file",
+        )
+        assert unmodified_file_res.success is False
+        assert "not modified in PR" in unmodified_file_res.error
+
     def test_post_summary_comment_formatting(self):
         mock_client = GitHubClient(mock_mode=True)
         tool = PostSummaryCommentTool(github_client=mock_client, pr_number=1, immediate_post=False)
