@@ -1,6 +1,6 @@
 name: "AI-Powered PR Review Bot"
 description: "Autonomous code review agent powered by Groq and multi-step tool calling"
-author: "Antigravity"
+author: "DevOps & Platform Engineering"
 branding:
   icon: "check-circle"
   color: "purple"

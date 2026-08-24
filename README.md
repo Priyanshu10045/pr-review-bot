@@ -1,28 +1,27 @@
 # 🤖 AI-Powered PR Review Bot (GitHub Action)
 
-[![Pytest & Ruff Checks](https://github.com/your-username/pr-review-bot/actions/workflows/test.yml/badge.svg)](https://github.com/your-username/pr-review-bot)
+[![Pytest & Ruff Checks](https://github.com/your-org/pr-review-bot/actions/workflows/test.yml/badge.svg)](https://github.com/your-org/pr-review-bot)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Groq LPU](https://img.shields.io/badge/Powered%20By-Groq%20Cloud-f55036.svg)](https://groq.com)
 [![Docker Container Action](https://img.shields.io/badge/GitHub%20Action-Docker-2496ED.svg)](https://github.com/features/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An autonomous, multi-step **AI code review agent packaged as a Docker-based GitHub Action**. Unlike single-prompt diff summarizers, this bot executes a **ReAct tool-calling loop** powered by Groq's high-throughput LPU inference (`llama-3.3-70b-versatile`). It selectively inspects PR diffs, fetches surrounding codebase context, scans for cross-file caller regressions, and posts batch inline and summary reviews directly to GitHub Pull Requests in seconds.
+An autonomous, multi-step **AI code review agent packaged as a Docker-based GitHub Action**. Unlike single-prompt diff summarizers, this bot executes a **ReAct tool-calling loop** powered by Groq's high-throughput LPU inference (`llama-3.3-70b-versatile` or `llama-3.1-8b-instant`). It selectively inspects PR diffs, fetches surrounding codebase context, scans for cross-file caller regressions, and posts batch inline and summary reviews directly to GitHub Pull Requests in seconds.
 
 ---
 
 ## 📑 Table of Contents
 - [Architecture & System Design](#-architecture--system-design)
-- [Key Engineering Decisions & Interview Defense](#-key-engineering-decisions--interview-defense)
-  - [1. Why Python + Docker Action vs. JavaScript Native Action?](#1-why-python--docker-action-vs-javascript-native-action)
-  - [2. Why Groq for CI/CD Time Horizons?](#2-why-groq-for-cicd-time-horizons)
-  - [3. Multi-Step Tool Calling vs. Monolithic Prompting](#3-multi-step-tool-calling-vs-monolithic-prompting)
+- [Architectural Decisions & Technical Rationale](#-architectural-decisions--technical-rationale)
+  - [1. Python + Docker Container Action vs. JavaScript Native Action](#1-python--docker-container-action-vs-javascript-native-action)
+  - [2. Groq LPU Inference for CI/CD Time Horizons](#2-groq-lpu-inference-for-cicd-time-horizons)
+  - [3. Multi-Step ReAct Tool-Calling vs. Monolithic Prompting](#3-multi-step-react-tool-calling-vs-monolithic-prompting)
 - [Agent Tool Suite](#-agent-tool-suite)
 - [Agent Reasoning Lifecycle](#-agent-reasoning-lifecycle)
 - [Quick Start: Adding to Your Repository](#-quick-start-adding-to-your-repository)
 - [Local Development & Offline Simulation](#-local-development--offline-simulation)
 - [Testing & Quality Assurance](#-testing--quality-assurance)
 - [Known Limitations & Future Roadmap](#-known-limitations--future-roadmap)
-- [📄 Resume Highlights (Placement-Ready Bullet Points)](#-resume-highlights-placement-ready-bullet-points)
 
 ---
 
@@ -74,24 +73,24 @@ An autonomous, multi-step **AI code review agent packaged as a Docker-based GitH
 
 ---
 
-## 💡 Key Engineering Decisions & Interview Defense
+## 💡 Architectural Decisions & Technical Rationale
 
-### 1. Why Python + Docker Action vs. JavaScript Native Action?
-- **The Problem**: GitHub Actions natively executes JavaScript via Node.js with zero container startup overhead. Running Python natively in GitHub Actions requires a composite action that downloads Python and runs `pip install` on every single PR run, adding **20–45 seconds of runtime penalty** per workflow run.
-- **The Solution**: Packaging the bot as a **Docker Container Action** (`runs.using: docker`). 
-- **The Tradeoff & Rationale**: 
+### 1. Python + Docker Container Action vs. JavaScript Native Action
+- **Context**: GitHub Actions natively executes JavaScript via Node.js with zero container startup overhead. Running Python natively in GitHub Actions requires a composite action that downloads Python and runs `pip install` on every single PR run, adding **20–45 seconds of runtime overhead** per workflow execution.
+- **Solution**: Packaging the bot as a **Docker Container Action** (`runs.using: docker`). 
+- **Rationale**: 
   - The container action produces an **immutable, hermetic runtime** with Python 3.11, all dependencies, and native utilities (`ripgrep`, `git`) pre-compiled into cached image layers.
-  - No environment drift or Python version fragmentation across host runners.
-  - Zero dependency installation latency during the CI execution lifecycle.
+  - Zero environment drift across host runners.
+  - No dependency installation latency during the CI execution lifecycle.
 
-### 2. Why Groq for CI/CD Time Horizons?
-- **The Problem**: A multi-step agent loop making 5 to 8 sequential tool calls over traditional cloud GPU providers (e.g., standard OpenAI/Claude endpoints) takes **45 to 90 seconds**. In a fast-paced development workflow, slowing down the CI pipeline directly hurts developer productivity.
-- **The Solution**: Groq's Language Processing Units (LPUs) deliver **300 to 800 tokens/second** on models like `llama-3.3-70b-versatile`.
-- **The Outcome**: The entire 4-stage agent reasoning loop finishes in **under 4 to 8 seconds**, making automated AI code review practical as a synchronous pull request check.
+### 2. Groq LPU Inference for CI/CD Time Horizons
+- **Context**: A multi-step agent loop making 5 to 8 sequential tool calls over traditional cloud GPU providers takes **45 to 90 seconds**. In a fast-paced development workflow, slowing down the CI pipeline directly hurts developer productivity.
+- **Solution**: Groq's Language Processing Units (LPUs) deliver **300 to 800 tokens/second** on tool-capable models.
+- **Outcome**: The entire 4-stage agent reasoning loop finishes in **under 4 to 8 seconds**, making automated AI code review practical as a synchronous pull request check.
 
-### 3. Multi-Step Tool Calling vs. Monolithic Prompting
-- **The Problem**: Monolithic prompts that dump the entire git diff into a single prompt suffer from token truncation, high hallucination rates, and lack surrounding repository awareness.
-- **The Solution**: The ReAct tool-calling loop enables dynamic problem decomposition:
+### 3. Multi-Step ReAct Tool-Calling vs. Monolithic Prompting
+- **Context**: Monolithic prompts that dump the entire git diff into a single prompt suffer from token truncation, high hallucination rates, and lack surrounding repository awareness.
+- **Solution**: The ReAct tool-calling loop enables dynamic problem decomposition:
   1. Inspects the diff summary and PR metadata.
   2. Selectively reads surrounding file lines (`get_file_content`) only when needed.
   3. Scans across repository files (`search_codebase`) to detect whether a modified signature broke callers elsewhere in the codebase.
@@ -169,11 +168,11 @@ jobs:
           fetch-depth: 0
 
       - name: Run AI PR Review Bot
-        uses: your-username/pr-review-bot@v1
+        uses: your-org/pr-review-bot@main
         with:
           groq_api_key: ${{ secrets.GROQ_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          model: "llama-3.3-70b-versatile"
+          model: "llama-3.1-8b-instant"
           max_tool_calls: "15"
           enable_inline_comments: "true"
           log_level: "INFO"
@@ -185,7 +184,7 @@ jobs:
 | :--- | :---: | :---: | :--- |
 | `groq_api_key` | **Yes** | — | API key from [Groq Cloud Console](https://console.groq.com) |
 | `github_token` | **Yes** | `${{ github.token }}` | GitHub token for posting review comments |
-| `model` | No | `llama-3.3-70b-versatile` | Groq model ID for agent reasoning |
+| `model` | No | `llama-3.1-8b-instant` | Groq model ID for agent reasoning |
 | `max_tool_calls`| No | `15` | Safety cap on tool execution loop depth |
 | `enable_inline_comments` | No | `true` | Post line-level comments on the diff |
 | `log_level` | No | `INFO` | Verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
@@ -198,11 +197,11 @@ The bot includes an offline simulation mode in `sample_run.py` to test diffs and
 
 ```bash
 # 1. Clone repository and install dependencies
-git clone https://github.com/your-username/pr-review-bot.git
+git clone https://github.com/your-org/pr-review-bot.git
 cd pr-review-bot
-python -m venv .venv
+uv venv .venv
 source .venv/bin/activate  # Or `.venv\Scripts\activate` on Windows
-pip install -r requirements-dev.txt
+uv pip install -r requirements-dev.txt
 
 # 2. Run offline mock demo (No API key needed)
 python sample_run.py --diff tests/fixtures/buggy_pr_diff.diff --mock
@@ -221,7 +220,7 @@ python sample_run.py --diff tests/fixtures/buggy_pr_diff.diff --api-key YOUR_GRO
 
 ## 🧪 Testing & Quality Assurance
 
-The test suite contains 26 comprehensive unit and integration tests covering GitHub API rate limiting, retry backoff, JSON tool schemas, diff parsing, and agent loop safeguards:
+The test suite contains 29 comprehensive unit and integration tests covering GitHub API rate limiting, retry backoff, JSON tool schemas, diff parsing, model listing, and agent loop safeguards:
 
 ```bash
 # Run pytest with branch and statement coverage
@@ -231,11 +230,12 @@ pytest -v --cov=src --cov-report=term-missing tests/
 ruff check .
 ```
 
-### Key Test Cases:
+### Key Test Scenarios:
 - **Clean PR Scenario**: Verifies the agent detects low risk, posts 0 unnecessary inline comments, and outputs a clean markdown review.
 - **Buggy PR Scenario**: Verifies detection of SQL injection, hardcoded API keys, off-by-one index errors, and posts line-anchored comments with `HIGH` risk assessment.
 - **Max Tool Call Safeguard**: Enforces loop termination when reaching step ceiling, flushing partial review comments gracefully.
 - **GitHub API Rate Limit Backoff**: Tests exponential backoff and retry when receiving HTTP 403 / 429 status codes.
+- **Dynamic Model Discovery & Validation**: Tests SDK model listing and error handling on unavailable models.
 
 ---
 
@@ -244,14 +244,3 @@ ruff check .
 - **Static Analysis vs. Runtime Execution**: The agent reviews code via static diff and codebase inspection; it does not execute test suites or build binaries dynamically in an isolated sandbox.
 - **Cross-Repository Context**: The bot currently inspects files within the checked-out repository; external microservice dependencies are not traversed.
 - **Diff Parsing Boundary**: Very large diffs (>5000 lines) are automatically truncated to fit within model context windows; use `get_file_content` for granular file exploration.
-
----
-
-## 📄 Resume Highlights (Placement-Ready Bullet Points)
-
-Tailored for **Software Development Engineer (SDE) / Platform Engineer** resumes (IIT Kharagpur placements):
-
-- **Designed & Implemented Autonomous Code Review Agent**: Engineered a production-grade CI/CD tool packaged as a **Docker Container GitHub Action** utilizing **Groq LPU API** (`llama-3.3-70b-versatile`) and Python 3.11 to deliver automated, multi-step PR code reviews in **<8 seconds**.
-- **Engineered Resilient Agent Orchestration Framework**: Built a 6-tool **ReAct orchestration engine** with JSON Schema function-calling, dynamic codebase search (`ripgrep`), and safe loop ceilings (max 15 steps) with graceful fallback to prevent infinite execution and runaway API costs.
-- **Production-Grade API Integration & Fault Tolerance**: Developed a resilient GitHub REST API wrapper with **exponential backoff**, rate-limit monitoring, and unified diff line-mapping for batch `PullRequestReview` submissions.
-- **Comprehensive Testing & CI Pipeline**: Achieved **74%+ test coverage across 26 unit and integration tests** using Pytest and Ruff, validating offline simulations, mock event payloads, and AST-level bug detection (SQL injection, boundary errors).

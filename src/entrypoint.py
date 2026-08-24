@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import sys
@@ -53,10 +54,35 @@ def extract_event_context(config: BotConfig) -> tuple[int | None, str | None, st
     return pr_number, repo_name, head_sha
 
 
+def parse_cli_arguments() -> argparse.Namespace:
+    """Parse optional CLI flags for running directly against real GitHub PRs."""
+    parser = argparse.ArgumentParser(description="AI-Powered PR Review Bot")
+    parser.add_argument("--repo", type=str, default=None, help="GitHub repository in 'owner/repo' format")
+    parser.add_argument("--pr", type=int, default=None, help="Pull Request number")
+    parser.add_argument("--api-key", type=str, default=None, help="Groq API Key (overrides GROQ_API_KEY env)")
+    parser.add_argument("--token", type=str, default=None, help="GitHub Token (overrides GITHUB_TOKEN env)")
+    parser.add_argument("--model", type=str, default=None, help="Groq Model ID (e.g., llama-3.1-8b-instant)")
+    parser.add_argument("--dry-run", action="store_true", help="Inspect and generate review without posting to GitHub")
+    return parser.parse_args()
+
+
 def main() -> int:
-    """Main execution flow for GitHub Action."""
+    """Main execution flow for GitHub Action or direct live PR review."""
     logger.info("Initializing AI-Powered PR Review Bot...")
+    cli_args = parse_cli_arguments()
     config = BotConfig()
+
+    # Override config with CLI arguments if provided
+    if cli_args.repo:
+        config.github_repository = cli_args.repo
+    if cli_args.pr:
+        config.pr_number = cli_args.pr
+    if cli_args.api_key:
+        config.groq_api_key = cli_args.api_key
+    if cli_args.token:
+        config.github_token = cli_args.token
+    if cli_args.model:
+        config.model = cli_args.model
 
     # Configure root log level
     log_level_num = getattr(logging, config.log_level.upper(), logging.INFO)
@@ -64,15 +90,18 @@ def main() -> int:
 
     pr_number, repo_name, event_head_sha = extract_event_context(config)
 
+    # Use explicit config PR/repo if not found in event path
+    pr_number = pr_number or config.pr_number
+    repo_name = repo_name or config.github_repository
+
     if not pr_number:
         logger.warning(
-            "No pull request number identified from GITHUB_EVENT_PATH or inputs. "
-            "PR Review Bot only runs on pull_request events. Exiting cleanly."
+            "No pull request number provided. Specify --pr <number> or run via GitHub pull_request action."
         )
-        return 0
+        return 1
 
     if not repo_name:
-        logger.error("GitHub repository name is missing. Set GITHUB_REPOSITORY or check action config.")
+        logger.error("GitHub repository name is missing. Specify --repo 'owner/name' or set GITHUB_REPOSITORY.")
         return 1
 
     try:
@@ -85,13 +114,14 @@ def main() -> int:
     github_client = GitHubClient(
         token=config.github_token,
         repository_name=repo_name,
-        mock_mode=False,
+        mock_mode=cli_args.dry_run,
     )
 
     # 2. Fetch initial PR metadata for SHA verification
     try:
         pr_meta = github_client.get_pr_metadata(pr_number)
         head_sha = pr_meta.head_sha or event_head_sha or "HEAD"
+        logger.info("Targeting PR #%d on %s ('%s' by @%s)", pr_number, repo_name, pr_meta.title, pr_meta.author)
     except Exception as err:
         logger.error("Failed to retrieve PR #%d metadata from GitHub: %s", pr_number, err)
         return 1
@@ -110,7 +140,7 @@ def main() -> int:
     registry.register(GetFileContentTool(github_client=github_client, repo_root=config.repo_root, default_ref=head_sha))
     registry.register(SearchCodebaseTool(repo_root=config.repo_root))
 
-    # Review comment tools (staged for final batch submission)
+    # Review comment tools
     inline_tool = PostInlineCommentTool(
         github_client=github_client,
         pr_number=pr_number,
@@ -144,23 +174,27 @@ def main() -> int:
         summary_markdown = PostSummaryCommentTool.format_markdown(result.summary)
         active_inline_comments = result.inline_comments if config.enable_inline_comments else []
 
-        logger.info(
-            "Submitting batch review to PR #%d (%d inline comments, risk=%s)",
-            pr_number,
-            len(active_inline_comments),
-            result.summary.risk_level,
-        )
+        if not cli_args.dry_run:
+            logger.info(
+                "Submitting batch review to PR #%d on %s (%d inline comments, risk=%s)",
+                pr_number,
+                repo_name,
+                len(active_inline_comments),
+                result.summary.risk_level,
+            )
 
-        github_client.submit_batch_review(
-            pr_number=pr_number,
-            commit_sha=head_sha,
-            summary_text=summary_markdown,
-            comments=active_inline_comments,
-            event="COMMENT",
-        )
+            github_client.submit_batch_review(
+                pr_number=pr_number,
+                commit_sha=head_sha,
+                summary_text=summary_markdown,
+                comments=active_inline_comments,
+                event="COMMENT",
+            )
+        else:
+            logger.info("[DRY RUN] Review completed successfully without posting to GitHub.")
 
     logger.info("PR Review Bot completed successfully.")
-    return 0
+    return 0 if result.completed_normally else 1
 
 
 if __name__ == "__main__":
